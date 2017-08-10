@@ -1,5 +1,5 @@
 OBJS = kernel.o
-CFLAGS = -O4 -fPIC
+CFLAGS = -O4 -fPIC -std=c++14
 
 # c compile
 #COMP = gcc

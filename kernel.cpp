@@ -18,7 +18,7 @@ int correlate2d_t(
 		int o_c,
 		FLOAT_TYPE* o,
 		int o_h,
-		int o_w,
+		int o_w
 	) {
 	/*
 	enumarate dims
@@ -120,7 +120,7 @@ int correlate2d(
 	FLOAT_TYPE* z_b = z;
 	std::future<int>* fu = new std::future<int> [batchs]; 
 	for (int b = 0; b < batchs; ++b) {
-		fu[b] = std::async(launch::async, &correlated2d_t, 
+		fu[b] = std::async(std::launch::async, &correlate2d_t, 
 			z_b, //changed
 			1, //changed
 			z_h,
@@ -138,7 +138,7 @@ int correlate2d(
 		o_b += o_b_size;
 		z_b += z_b_size;
 	}
-	for (int b = 0; b < batches; ++b) {
+	for (int b = 0; b < batchs; ++b) {
 		int ret = fu[b].get();
 		if (ret != 0) return ret;
 	}
