@@ -1,7 +1,7 @@
-""" Some API to make tensorwolf look like tensorflow """
+""" Some APIs to make tensorwolf look like tensorflow """
 from tensorwolf.executor import *
 
-
+# data are saved in the form of numpy.ndarray
 zeros = np.zeros
 ones = np.ones
 float32 = np.float32
@@ -58,6 +58,9 @@ class train(object):
 
     class GradientDescentOptimizer(Optimizer):
         def __init__(self, learning_rate=0.01, name="GradientDescentOptimizer"):
+            '''
+            The most commonly used optimizer.
+            '''
             self.learning_rate = learning_rate
             self.name = name
 
@@ -81,9 +84,11 @@ class train(object):
                      beta2=0.999,
                      epsilon=1e-8,
                      name="AdamOptimizer"):
-            # for more detail:
-            # https://arxiv.org/abs/1412.6980
-            # https://www.tensorflow.org/api_docs/python/tf/train/AdamOptimizer
+            '''
+            for more detail:
+            https://arxiv.org/abs/1412.6980
+            https://www.tensorflow.org/api_docs/python/tf/train/AdamOptimizer
+            '''
             self.learning_rate = learning_rate
             self.beta1 = beta1
             self.beta2 = beta2
@@ -153,6 +158,7 @@ class nn(object):
     class DropoutOp(Op):
         def __call__(self, node_A, node_B, name=None):
             new_node = mul_op(node_A, probshape_op(node_A, node_B)) / node_B
+            # do not forget the scale part.
             if name is None:
                 name = "Dropout(%s,prob=%s)" % (node_A.name, node_B.name)
             new_node.name = name

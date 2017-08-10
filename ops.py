@@ -1,8 +1,12 @@
-""" define the behaviors of nodes """
+"""
+define the behaviors of nodes
+reference: http://dlsys.cs.washington.edu/
+"""
 from __future__ import absolute_import
 import numpy as np
 # from scipy import signal
-# reference: dlsys-autodiff
+
+# A dict to record all variables(in case something need to be update)
 variable_to_node = {}
 
 
@@ -303,7 +307,7 @@ class MatMulOp(Op):
 
 class PlaceholderOp(Op):
     def __call__(self, dtype, shape=None, name="Placeholder"):
-        """Creates a placeholder node."""
+        """Creates a placeholder node to feed later."""
         new_node = Op.__call__(self)
         new_node.const_attr = (shape, dtype)
         new_node.name = name
@@ -319,7 +323,7 @@ class PlaceholderOp(Op):
 
 class VariableOp(Op):
     def __call__(self, initial_value, dtype=None, shape=None, name="Variable"):
-        """Creates a variable node."""
+        """Creates a variable node. (initialized when initializer is called)"""
         new_node = Op.__call__(self)
         # check the input's shape
         if shape is not None:
@@ -347,7 +351,7 @@ class VariableOp(Op):
 
 class ConstantOp(Op):
     def __call__(self, initial_value, dtype=None, shape=None, name="Const"):
-        """Creates a constant node."""
+        """Creates a constant node. (Sometimes VARIABLES created by program secretly...)"""
         new_node = Op.__call__(self)
         if not isinstance(initial_value, np.ndarray) and (shape is not None):
             initial_value = np.ones(shape=shape) * initial_value
@@ -399,6 +403,7 @@ class OnesLikeOp(Op):
 
 class ReduceSumOp(Op):
     def __call__(self, node_A, axis=None, keep_dims=False, reduction_indices=None):
+        """Creates a node that acts like np.sum"""
         new_node = Op.__call__(self)
         if axis is None and reduction_indices is not None:
             axis = tuple(reduction_indices)
@@ -420,6 +425,7 @@ class ReduceSumOp(Op):
 
 class ReduceMeanOp(Op):
     def __call__(self, node_A, axis=None, keep_dims=False, reduction_indices=None):
+        """Creates a node that acts like np.mean"""
         new_node = Op.__call__(self)
         if axis is None and reduction_indices is not None:
             axis = tuple(reduction_indices)
@@ -511,7 +517,11 @@ class ReduceShapeMeanOp(Op):
 
 class BroadcastToOp(Op):
     def __call__(self, node_A, node_B):
-        """Creates a node that represents np.broadcast_to(node_A, node_B.shape)."""
+        """
+        Creates a node that represents np.broadcast_to(node_A, node_B.shape).
+        The concept of the 'broadcast' is slightly extended(how? see compute) to
+        satisfy the special requirements of other operators gradient.
+        """
         new_node = Op.__call__(self)
         new_node.inputs = [node_A, node_B]
         new_node.name = "BroadcastTo(%s,%s.shape)" % (node_A.name, node_B.name)
@@ -544,7 +554,7 @@ class BroadcastToOp(Op):
 class ProbShapeOp(Op):
     def __call__(self, node_A, node_B):
         """Creates a node that has the shape of node_A and filled with
-        one and zero with probability of node_b"""
+        one and zero with probability of node_b (create a mask)"""
         new_node = Op.__call__(self)
         new_node.inputs = [node_A, node_B]
         new_node.name = "ProbShape(shape=%s,prob=%s)" % (
@@ -671,6 +681,7 @@ class PowOp(Op):
 
 
 def softmax_func(y):
+    '''Numerical safe softmax'''
     expy = np.exp(y - np.max(y, axis=-1, keepdims=True))
     softmax = expy / np.sum(expy, axis=-1, keepdims=True)
     return softmax
@@ -678,6 +689,10 @@ def softmax_func(y):
 
 class SoftmaxCrossEntropyOp(Op):
     def __call__(self, node_A, node_B):
+        '''
+        A combined operator == -reduce_sum(y_ * log(softmax(y)), axis=-1, keepdims=True)
+        A little bit faster than the latter. (since the gradient is optimized)
+        '''
         new_node = Op.__call__(self)
         new_node.inputs = [node_A, node_B]
         new_node.name = "SoftmaxCrossEntropy(%s, %s)" % (
@@ -705,6 +720,7 @@ class SoftmaxCrossEntropyOp(Op):
 
 class SoftmaxOp(Op):
     def __call__(self, node_A):
+        '''A node to calculate softmax(input)'''
         new_node = Op.__call__(self)
         new_node.inputs = [node_A]
         new_node.name = "Softmax(%s)" % (node_A.name)
@@ -721,6 +737,7 @@ class SoftmaxOp(Op):
 
 
 def zero_padding_func(ori, up, down, left, right):
+    '''Add zeros around original matrix's second and third dimension'''
     ret = np.zeros([ori.shape[0], ori.shape[1] + up + down,
                     ori.shape[2] + left + right, ori.shape[3]])
     ret[:, up:up + ori.shape[1], left:left + ori.shape[2], :] = ori[:, :, :, :]
@@ -739,6 +756,10 @@ import tensorwolf.c_ops as c_ops
 
 class Conv2DOp(Op):
     def __call__(self, node_A, node_B, strides=[1, 1, 1, 1], padding='SAME', name=None):
+        '''
+        Acts the same as tensorflow.conv2d
+        But... gradient is only supported when strides==[1,1,1,1] and padding=='SAME'...
+        '''
         assert padding == 'SAME'  # 'VALID' not supported
         new_node = Op.__call__(self)
         new_node.inputs = [node_A, node_B]
@@ -807,6 +828,10 @@ class Conv2DGradientNodeBOp(Op):
 
 class MaxPoolOp(Op):
     def __call__(self, node_A, ksize, strides, padding='SAME'):
+        '''
+        Acts the same as tensorflow.max_pool
+        But... gradient supported only when ksize==strides and padding='SAME'...
+        '''
         new_node = Op.__call__(self)
         new_node.inputs = [node_A]
         new_node.name = "MaxPool(%s)" % (node_A.name)
@@ -972,6 +997,7 @@ class AssignOp(Op):
 
 class EqualOp(Op):
     def __call__(self, node_A, node_B):
+        """Creates a node that represents np.equal(node_A, node_B)."""
         new_node = Op.__call__(self)
         new_node.inputs = [node_A, node_B]
         new_node.name = "(%s==%s)" % (node_A.name, node_B.name)
@@ -988,6 +1014,7 @@ class EqualOp(Op):
 
 class ArgMaxOp(Op):
     def __call__(self, node_A, axis=None, name=None, dimension=None):
+        """Creates a node that represents np.argmax()."""
         # I don't know what dimension stands for...
         new_node = Op.__call__(self)
         new_node.inputs = [node_A]
@@ -1009,6 +1036,7 @@ class ArgMaxOp(Op):
 
 class CastOp(Op):
     def __call__(self, node_A, dtype, name=None):
+        """Creates a node to do the casting"""
         new_node = Op.__call__(self)
         new_node.inputs = [node_A]
         new_node.const_attr = dtype
@@ -1029,6 +1057,11 @@ class CastOp(Op):
 
 class PackOp(Op):
     def __call__(self, node_list, name=None):
+        """
+        Creates a node that uses nodes in node_list as inputs
+        You can use this op to pack a list of operators together
+        Notice: the order of calculations is not garanteed!
+        """
         new_node = Op.__call__(self)
         new_node.inputs = node_list
         if name is None:

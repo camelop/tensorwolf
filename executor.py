@@ -1,11 +1,13 @@
-# profile""" define the behaviors of excutor """
+"""
+Define the behaviors of excutor.
+reference: http://dlsys.cs.washington.edu/
+"""
 from __future__ import absolute_import
 import numpy as np
+import os
+import sys
 from tensorwolf.topo import *
 from tensorwolf.ops import *
-import sys
-import os
-#reference: dlsys-autodiff
 
 
 class Executor(object):
@@ -77,14 +79,6 @@ def gradients(output_node, node_list):
                 node_to_output_grads_list[node.inputs[i]] = []
             node_to_output_grads_list[node.inputs[i]].append(
                 input_grads_list[i])
-    '''
-    print("node_list: ")
-    for i in node_list:
-        print("  ", i)
-    print("node_to_output_grad")
-    for i in node_to_output_grad:
-        print("  ", i)
-    '''
     grad_node_list = [node_to_output_grad[node] for node in node_list]
     return grad_node_list
 
