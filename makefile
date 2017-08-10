@@ -2,12 +2,12 @@ OBJS = kernel.o
 CFLAGS = -O4 -fPIC
 
 # c compile
-COMP = gcc
-FILE = kernel.c
+#COMP = gcc
+#FILE = kernel.c
 
 # c++ compile
-#COMP = g++
-#FILE = kernel.cpp
+COMP = g++
+FILE = kernel.cpp
 
 kernel.so: kernel.o
 	${COMP} ${CFLAGS} -shared kernel.o -o kernel.so

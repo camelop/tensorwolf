@@ -1,11 +1,10 @@
 #define DLLEXPORT extern "C"
 // #include <iostream>
-
 #define FLOAT_TYPE float
 // Rho Aias!!!
-	
-DLLEXPORT 
-int correlate2d(
+
+#include<future>
+int correlate2d_t(
 		FLOAT_TYPE* z,
 		int batchs,
 		int z_h,
@@ -19,7 +18,7 @@ int correlate2d(
 		int o_c,
 		FLOAT_TYPE* o,
 		int o_h,
-		int o_w
+		int o_w,
 	) {
 	/*
 	enumarate dims
@@ -79,6 +78,69 @@ int correlate2d(
 		}
 		o_b += o_b_size;
 		z_b += z_b_size;
+	}
+	//std::cout << "Receive" << std::endl;
+	return 0;
+}
+
+
+
+DLLEXPORT 
+int correlate2d(
+		FLOAT_TYPE* z,
+		int batchs,
+		int z_h,
+		int z_w,
+		int i_c,
+		int h_step,
+		int w_step,
+		FLOAT_TYPE* f,
+		int f_h,
+		int f_w,
+		int o_c,
+		FLOAT_TYPE* o,
+		int o_h,
+		int o_w
+	) {
+	/*
+	enumarate dims
+	b,oh,ow,ih,iw,ic,oc,
+	*/
+	int o_b_size = o_h*o_w*o_c;
+	int o_oh_size = o_w*o_c;
+	int f_fh_size = f_w*i_c*o_c;
+	int f_fw_size = i_c*o_c;
+	int z_b_size = z_h*z_w*i_c;
+	int z_oh_size = h_step*z_w*i_c;
+	int z_ow_size = w_step*i_c;
+	int z_fh_size = z_w*i_c;
+
+	//std::cout << "Receive" << std::endl;
+	FLOAT_TYPE* o_b = o;
+	FLOAT_TYPE* z_b = z;
+	std::future<int>* fu = new std::future<int> [batchs]; 
+	for (int b = 0; b < batchs; ++b) {
+		fu[b] = std::async(launch::async, &correlated2d_t, 
+			z_b, //changed
+			1, //changed
+			z_h,
+			z_w,
+			i_c,
+			h_step,
+			w_step,
+			f,
+			f_h,
+			f_w,
+			o_c,
+			o_b, //changed
+			o_h,
+			o_w);
+		o_b += o_b_size;
+		z_b += z_b_size;
+	}
+	for (int b = 0; b < batches; ++b) {
+		int ret = fu[b].get();
+		if (ret != 0) return ret;
 	}
 	//std::cout << "Receive" << std::endl;
 	return 0;
